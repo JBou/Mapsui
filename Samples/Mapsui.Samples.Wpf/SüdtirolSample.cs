@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Windows;
@@ -41,6 +42,7 @@ namespace Mapsui.Samples.Common.Maps
 
         private static MapControl _mapControl;
         private bool _mouseDown;
+        private bool _mapDraggedOnce;
         private bool _mapDragged;
         private WFSProvider _wfsProvider;
         private static MemoryLayer selectedFeatures;
@@ -57,7 +59,7 @@ namespace Mapsui.Samples.Common.Maps
             _wfsProvider = CreateWFSProvider();
 
             _mapControl.MouseMove += MapControlOnMouseMove;
-            _mapControl.MouseLeftButtonDown += MapControlOnMouseLeftButtonDown;
+            //_mapControl.MouseLeftButtonDown += MapControlOnMouseLeftButtonDown;
             _mapControl.MouseLeftButtonUp += MapControlOnMouseLeftButtonUp;
         }
 
@@ -71,9 +73,9 @@ namespace Mapsui.Samples.Common.Maps
             map.Layers.Add(CreateTileLayer(CreateParzellenNummernTileSource()));
             //map.Layers.Add(CreateTileLayer(CreateKatastralgemeindenTileSource()));
             //map.Layers.Add(CreateTileLayer(CreateKlammernTileSource()));
-            
+
             selectedFeatures = new MemoryLayer("Selected") {DataSource = new MemoryProvider()};
-            selectedFeatures.Style = new VectorStyle() {Opacity = 0.5f, Fill = new Brush { Color = Color.Red }};
+            selectedFeatures.Style = new VectorStyle() {Opacity = 0.5f, Fill = new Brush {Color = Color.Red}};
             map.Layers.Add(selectedFeatures);
 
             var bb = new BoundingBox(449092, 5005092, 868522, 5424522);
@@ -172,45 +174,57 @@ namespace Mapsui.Samples.Common.Maps
 
         private void MapControlOnMouseMove(object sender, MouseEventArgs args)
         {
-            //if (_mouseDown)
-            //    _mapDragged = true;
+            if (args.LeftButton == MouseButtonState.Pressed)
+            {
+                if (_mapDraggedOnce && !_mapDragged
+                ) //Even the first click raises this event, with this we only trigger _mapDragged the second time. 
+                {
+                    _mapDragged = true;
+                    _mapDraggedOnce = false;
+                }
+                else
+                {
+                    _mapDraggedOnce = true;
+                }
+            }
         }
 
         private void MapControlOnMouseLeftButtonUp(object sender, MouseButtonEventArgs args)
         {
-            //return;
-            _mouseDown = false;
             if (!_mapDragged)
+                MapClicked(sender, args);
+            _mapDragged = false;
+            _mapDraggedOnce = false;
+        }
+
+        private void MapClicked(object sender, MouseButtonEventArgs args)
+        {
+            var infoArgs = _mapControl.GetMapInfo(args.GetPosition(_mapControl).ToMapsui());
+
+            //TODO?? We need to invert the point because the WFS returns inverted points...
+            //should be fixed somehow different (Proper coordiante system transformation?)
+            //see https://gis.stackexchange.com/q/320671/176232
+            //var invertedPoint = new Geometries.Point(infoArgs.WorldPosition.Y, infoArgs.WorldPosition.X);
+            var point = infoArgs.WorldPosition;
+
+            _wfsProvider.OgcFilter = null;
+            var result = _wfsProvider.ExecuteIntersectionQuery(infoArgs.WorldPosition.BoundingBox);
+            var parcells = result.Where(x => x.Geometry.Contains(point)).ToList();
+
+            parcells.Sort(new InnerGeometryComparer());
+
+            var parcell = parcells.FirstOrDefault();
+            if (parcell != null)
             {
-                _mapDragged = false;
-                var infoArgs = _mapControl.GetMapInfo(args.GetPosition(_mapControl).ToMapsui());
+                //Get all parcells with the same number (codice)
+                //var features = result.Where(x => x["PPOL_CODICE"].Equals(parcell["PPOL_CODICE"]));
 
-                //TODO?? We need to invert the point because the WFS returns inverted points...
-                //should be fixed somehow different (Proper coordiante system transformation?)
-                //see https://gis.stackexchange.com/q/320671/176232
-                //var invertedPoint = new Geometries.Point(infoArgs.WorldPosition.Y, infoArgs.WorldPosition.X);
-                var point = infoArgs.WorldPosition;
+                //MessageBox.Show(String.Join(Environment.NewLine, result.Select(y => y["PPOL_CODICE"])));
 
-                var result = _wfsProvider.ExecuteIntersectionQuery(infoArgs.WorldPosition.BoundingBox);
-                var parcells = result.Where(x => x.Geometry.Contains(point)).ToList();
+                SearchByCatastre(parcell["PPOL_CCAT_CODICE"].ToString(), parcell["PPOL_CODICE"].ToString());
 
-                parcells.Sort(new InnerGeometryComparer());
-
-                var parcell = parcells.FirstOrDefault();
-                if (parcell != null)
-                {
-                    //Get all parcells with the same number (codice)
-                    //TODO We should search for the parcell["PPOL_CODICE"] to find all connected parcells
-                    var features = result.Where(x => x["PPOL_CODICE"].Equals(parcell["PPOL_CODICE"]));
-                    ((MemoryProvider)selectedFeatures.DataSource).ReplaceFeatures(features);
-                    selectedFeatures.DataHasChanged();
-                    
-                    //MessageBox.Show(String.Join(Environment.NewLine, result.Select(y => y["PPOL_CODICE"])));
-                    MessageBox.Show(String.Join(Environment.NewLine,
-                        parcell.Fields.Select(x => x + ": " + parcell[x])));
-                    
-                    //SearchByCatastre(parcell["PPOL_CCAT_CODICE"].ToString(), parcell["PPOL_CODICE"].ToString());
-                }
+                MessageBox.Show(String.Join(Environment.NewLine,
+                    parcell.Fields.Select(x => x + ": " + parcell[x])));
             }
         }
 
@@ -241,24 +255,24 @@ namespace Mapsui.Samples.Common.Maps
 
         private void SearchByCatastre(string katastralgemeindeNr, string parzellenNummer)
         {
-            //TODO We need to use 1_0_0 because else the axis are inverted, but filter is only working with 1_1_0????
+            //TODO We need to use 1_0_0 because else the axis are inverted
             var ogcFilter = new OGCFilterCollection();
             ogcFilter.AddFilter(new PropertyIsEqualToFilter_FE1_1_0("PPOL_CCAT_CODICE", katastralgemeindeNr));
             ogcFilter.AddFilter(new PropertyIsEqualToFilter_FE1_1_0("PPOL_CODICE", parzellenNummer));
             ogcFilter.Junctor = OGCFilterCollection.JunctorEnum.And;
             _wfsProvider.OgcFilter = ogcFilter;
-        }
 
-        private void MapControlOnMouseLeftButtonDown(object sender, MouseButtonEventArgs args)
-        {
-            _mouseDown = true;
-            //MessageBox.Show(_mapControl.Map.Envelope.ToString());
+            //var bb = _wfsProvider.FeatureTypeInfo.BBox;
+            var features = _wfsProvider.GetFeaturesInView(null, 0);
+
+            ((MemoryProvider) selectedFeatures.DataSource).ReplaceFeatures(features);
+            selectedFeatures.DataHasChanged();
         }
 
         private static WFSProvider CreateWFSProvider()
         {
             //We NEED to use WFS version 1.0.0 to make axis order work. see https://gis.stackexchange.com/q/320671/176232
-            
+
             //var featureTypeInfo = new WfsFeatureTypeInfo(WFS_URL, "p_bz-cadastre_public", null, "Particelle_poligoni_validate_pubb", "PPOL_SHAPE", GeometryTypeEnum.PolygonPropertyType);
             //var statesProvider = new WFSProvider(featureTypeInfo, WFSProvider.WFSVersionEnum.WFS_1_1_0)
             var wfsProvider = new WFSProvider(WFS_URL, "p_bz-cadastre_public", "Particelle_poligoni_validate_pubb",
