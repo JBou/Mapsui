@@ -816,11 +816,13 @@ namespace Mapsui.Providers.Wfs
                     httpClientUtil.Url += _wfsTextResources.GetFeatureGETRequest(
                         featureTypeInfo, labelProperties, boundingBox, filter);
                 }
-
-                /* HTTP-POST */
-                httpClientUtil.PostData = _wfsTextResources.GetFeaturePOSTRequest(
-                    featureTypeInfo, labelProperties, boundingBox, filter);
-                httpClientUtil.AddHeader(HttpRequestHeader.ContentType.ToString(), "text/xml");
+                else
+                {
+                    /* HTTP-POST */
+                    httpClientUtil.PostData = _wfsTextResources.GetFeaturePOSTRequest(
+                        featureTypeInfo, labelProperties, boundingBox, filter);
+                    httpClientUtil.AddHeader(HttpRequestHeader.ContentType.ToString(), "text/xml");
+                }
             }
         }
         
@@ -829,5 +831,5 @@ namespace Mapsui.Providers.Wfs
             return ExecuteIntersectionQuery(box);
         }
                 
-            }
+    }
 }
