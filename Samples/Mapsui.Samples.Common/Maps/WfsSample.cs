@@ -6,13 +6,14 @@ using Mapsui.Providers.Wfs;
 using Mapsui.Providers.Wfs.Utilities;
 using Mapsui.Styles;
 using Mapsui.UI;
+using Mapsui.Utilities;
 
 namespace Mapsui.Samples.Common.Maps
 {
     public class WfsSample : ISample
     {
         public string Name => "6 WFS Sample";
-        public string Category => "Desktop";
+        public string Category => "Demo";
 
         public void Setup(IMapControl mapControl)
         {
@@ -30,8 +31,8 @@ namespace Mapsui.Samples.Common.Maps
 
                 // Sample by Peter Robineau
 
-                const string getCapabilitiesUri = "http://localhost:8080/geoserver/wfs";
-                const string serviceUri = "http://localhost:8080/geoserver/wfs";
+                const string getCapabilitiesUri = "http://ipv4.fiddler:8080/geoserver/wfs";
+                const string serviceUri = "http://ipv4.fiddler:8080/geoserver/wfs";
 
                 var map = new Map();
                 map.Layers.Add(CreateStatesLayer(getCapabilitiesUri));
