@@ -41,7 +41,6 @@ namespace Mapsui.Samples.Common.Maps
         private static string WFS_URL = "https://geoservices.buergernetz.bz.it/geoserver/ows";
 
         private static MapControl _mapControl;
-        private bool _mouseDown;
         private bool _mapDraggedOnce;
         private bool _mapDragged;
         private WFSProvider _wfsProvider;
@@ -206,10 +205,9 @@ namespace Mapsui.Samples.Common.Maps
             //see https://gis.stackexchange.com/q/320671/176232
             //var invertedPoint = new Geometries.Point(infoArgs.WorldPosition.Y, infoArgs.WorldPosition.X);
             var point = infoArgs.WorldPosition;
-
-            _wfsProvider.OgcFilter = null;
-            var result = _wfsProvider.ExecuteIntersectionQuery(infoArgs.WorldPosition.BoundingBox);
-            var parcells = result.Where(x => x.Geometry.Contains(point)).ToList();
+            
+            var intersectingParcells = _wfsProvider.ExecuteIntersectionQuery(infoArgs.WorldPosition.BoundingBox);
+            var parcells = intersectingParcells.Where(x => x.Geometry.Contains(point)).ToList();
 
             parcells.Sort(new InnerGeometryComparer());
 
@@ -221,8 +219,10 @@ namespace Mapsui.Samples.Common.Maps
 
                 //MessageBox.Show(String.Join(Environment.NewLine, result.Select(y => y["PPOL_CODICE"])));
 
-                SearchByCatastre(parcell["PPOL_CCAT_CODICE"].ToString(), parcell["PPOL_CODICE"].ToString());
-
+                var result = SearchByCatastre(parcell["PPOL_CCAT_CODICE"].ToString(), parcell["PPOL_CODICE"].ToString());
+                ((MemoryProvider) selectedFeatures.DataSource).ReplaceFeatures(result);
+                selectedFeatures.DataHasChanged();
+                
                 MessageBox.Show(String.Join(Environment.NewLine,
                     parcell.Fields.Select(x => x + ": " + parcell[x])));
             }
@@ -253,7 +253,7 @@ namespace Mapsui.Samples.Common.Maps
             }
         }
 
-        private void SearchByCatastre(string katastralgemeindeNr, string parzellenNummer)
+        private IEnumerable<IFeature> SearchByCatastre(string katastralgemeindeNr, string parzellenNummer)
         {
             //TODO We need to use 1_0_0 because else the axis are inverted
             var ogcFilter = new OGCFilterCollection();
@@ -265,8 +265,9 @@ namespace Mapsui.Samples.Common.Maps
             //var bb = _wfsProvider.FeatureTypeInfo.BBox;
             var features = _wfsProvider.GetFeaturesInView(null, 0);
 
-            ((MemoryProvider) selectedFeatures.DataSource).ReplaceFeatures(features);
-            selectedFeatures.DataHasChanged();
+            _wfsProvider.OgcFilter = null;
+
+            return features;
         }
 
         private static WFSProvider CreateWFSProvider()
