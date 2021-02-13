@@ -277,10 +277,10 @@ namespace Mapsui.Samples.Common.Maps
             //var featureTypeInfo = new WfsFeatureTypeInfo(WFS_URL, "p_bz-cadastre_public", null, "Particelle_poligoni_validate_pubb", "PPOL_SHAPE", GeometryTypeEnum.PolygonPropertyType);
             //var statesProvider = new WFSProvider(featureTypeInfo, WFSProvider.WFSVersionEnum.WFS_1_1_0)
             var wfsProvider = new WFSProvider(WFS_URL, "p_bz-cadastre_public", "Particelle_poligoni_validate_pubb",
-                WFSProvider.WFSVersionEnum.WFS_1_0_0)
+                WFSProvider.WFSVersionEnum.WFS_1_1_0)
             {
                 QuickGeometries = true,
-                //GetFeatureGetRequest = true,
+                GetFeatureGetRequest = true,
                 //CRS = "EPGS:25832",
             };
             foreach (var elementInfo in wfsProvider.FeatureTypeInfo.Elements)
