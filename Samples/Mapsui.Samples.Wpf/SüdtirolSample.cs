@@ -64,8 +64,8 @@ namespace Mapsui.Samples.Common.Maps
 
         public static Map CreateMap()
         {
-            var map = new Map {CRS = "EPSG:25832"};
-            //map.Layers.Add(OpenStreetMap.CreateTileLayer());
+            var map = new Map {CRS = "EPSG:3857"};
+            map.Layers.Add(OpenStreetMap.CreateTileLayer());
             map.Layers.Add(CreateTileLayer(CreateLuftBildTileSource()));
             //TODO Only show when zommed in
             map.Layers.Add(CreateTileLayer(CreateParzellenTileSource()));
@@ -77,7 +77,7 @@ namespace Mapsui.Samples.Common.Maps
             selectedFeatures.Style = new VectorStyle() {Opacity = 0.5f, Fill = new Brush {Color = Color.Red}};
             map.Layers.Add(selectedFeatures);
 
-            var bb = new BoundingBox(449092, 5005092, 868522, 5424522);
+            var bb = new BoundingBox(SphericalMercator.FromLonLat(10, 45.8), SphericalMercator.FromLonLat(12.9, 47.5));
             map.Limiter = new ViewportLimiterKeepWithin
             {
                 PanLimits = bb
@@ -94,7 +94,7 @@ namespace Mapsui.Samples.Common.Maps
             {
                 var tileSources = WmtsParser.Parse(response);
                 return tileSources.First(t =>
-                    ((WmtsTileSchema) t.Schema).Layer == "P_BZ_OF_2014_2015_2017" && t.Schema.Srs == "EPSG:25832");
+                    ((WmtsTileSchema) t.Schema).Layer == "P_BZ_OF_2014_2015_2017" && t.Schema.Srs == "EPSG:3857");
             }
         }
 
@@ -142,7 +142,7 @@ namespace Mapsui.Samples.Common.Maps
             {
                 ContinueOnError = true,
                 //TimeOut = 20000,
-                CRS = "EPSG:25832",
+                CRS = "EPSG:3857",
             };
 
             foreach (var layer in layers)
@@ -162,7 +162,7 @@ namespace Mapsui.Samples.Common.Maps
         public static ITileSource CreateWmsTileSource(string url, string name, IEnumerable<string> layers,
             IEnumerable<string> styles)
         {
-            var schema = new GlobalSphericalMercator {Format = "image/png", Srs = "EPSG:25832"};
+            var schema = new GlobalSphericalMercator {Format = "image/png", Srs = "EPSG:3857"};
 
             var request = new WmscRequest(new Uri(url), schema, layers,
                 styles, new Dictionary<string, string> {{"transparent", "true"}});
@@ -281,7 +281,7 @@ namespace Mapsui.Samples.Common.Maps
             {
                 QuickGeometries = true,
                 GetFeatureGetRequest = true,
-                //CRS = "EPGS:25832",
+                CRS = "EPGS:3857",
             };
             foreach (var elementInfo in wfsProvider.FeatureTypeInfo.Elements)
             {
